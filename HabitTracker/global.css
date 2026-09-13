@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #111111;
+    --surface: #1C1C1F;
+    --surface-elevated: #27272A;
+    --text-primary: #FFFFFF;
+    --text-secondary: #B5B5B5;
+    --text-muted: #707070;
+    --accent-lime: #C7F464;
+    --accent-purple: #A855F7;
+    --accent-orange: #FF7849;
+    --accent-sky: #5AC8FA;
+    --accent-pink: #FF5DA2;
+    --accent-yellow: #FFD93D;
+  }
+}
