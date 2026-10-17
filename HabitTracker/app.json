@@ -20,7 +20,10 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.atul.habittracker",
-      "versionCode": 1
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -42,6 +45,11 @@
         }
       ],
       "@react-native-community/datetimepicker"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b6afbf53-196b-4d47-aa64-2ea05184c09d"
+      }
+    }
   }
 }
