@@ -107,7 +107,7 @@ export default function SettingsScreen() {
             {
               icon: <Bell size={18} color="#FF7849" />, iconBg: '#FF784920', label: 'Evening Check-in',
               val: settings.remindersEnabled,
-              set: (v: boolean) => { updateSetting('remindersEnabled', v); recomputeEveningCheckIn().catch(e => console.error(e)); },
+              set: (v: boolean) => { updateSetting('remindersEnabled', v); void recomputeEveningCheckIn(); },
             },
             {
               icon: <MessageSquare size={18} color="#C7F464" />, iconBg: '#C7F46420', label: 'Motivational Quotes',
@@ -117,12 +117,12 @@ export default function SettingsScreen() {
             {
               icon: <Zap size={18} color="#FFD93D" />, iconBg: '#FFD93D20', label: 'Streak Alerts',
               val: settings.streakAlerts,
-              set: (v: boolean) => { updateSetting('streakAlerts', v); recomputeEveningCheckIn().catch(e => console.error(e)); },
+              set: (v: boolean) => { updateSetting('streakAlerts', v); void recomputeEveningCheckIn(); },
             },
             {
               icon: <Heart size={18} color="#FF5DA2" />, iconBg: '#FF5DA220', label: 'Bring Me Back',
               val: settings.inactivityNudgeEnabled,
-              set: (v: boolean) => { updateSetting('inactivityNudgeEnabled', v); recomputeInactivityNudge().catch(e => console.error(e)); },
+              set: (v: boolean) => { updateSetting('inactivityNudgeEnabled', v); void recomputeInactivityNudge(); },
             },
           ].map((item, i, arr) => (
             <View key={item.label}>

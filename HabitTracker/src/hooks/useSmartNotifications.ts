@@ -55,60 +55,75 @@ export function useSmartNotifications() {
     const userId = user?.id;
     if (!userId) return;
 
-    if (!settings.remindersEnabled) {
-      await scheduleOrCancelEveningCheckIn(null);
-      return;
-    }
+    // Scheduling a local notification is a best-effort *background* task. Its
+    // failures (a transient network blip, a rate-limit 429, etc.) must never
+    // bubble up as a `console.error` — in React Native dev that pops a
+    // full-screen red LogBox overlay over the app for something the user
+    // never asked for and can't act on. Catch everything here, log it quietly
+    // (dev-only), and never reject: every caller fires this fire-and-forget.
+    try {
+      if (!settings.remindersEnabled) {
+        await scheduleOrCancelEveningCheckIn(null);
+        return;
+      }
 
-    const token = await getTokenRef.current();
-    const today = todayISO();
+      const token = await getTokenRef.current();
+      const today = todayISO();
 
-    const [habits, completionMap] = await Promise.all([
-      qcRef.current.fetchQuery({
-        queryKey: queryKeys.habits.all(userId),
-        queryFn: () => HabitsRepository.getHabits(token),
-      }),
-      qcRef.current.fetchQuery({
-        queryKey: queryKeys.completions.day(userId, today),
-        queryFn: () => CompletionsRepository.getCompletionsForDate(today, token),
-      }),
-    ]);
+      const [habits, completionMap] = await Promise.all([
+        qcRef.current.fetchQuery({
+          queryKey: queryKeys.habits.all(userId),
+          queryFn: () => HabitsRepository.getHabits(token),
+        }),
+        qcRef.current.fetchQuery({
+          queryKey: queryKeys.completions.day(userId, today),
+          queryFn: () => CompletionsRepository.getCompletionsForDate(today, token),
+        }),
+      ]);
 
-    const incomplete = (habits as Habit[]).filter(
-      (h) => !h.archived && isHabitScheduledForDate(h, today) && !completionMap[h.id]
-    );
-
-    if (incomplete.length === 0) {
-      await scheduleOrCancelEveningCheckIn(null);
-      return;
-    }
-
-    let streaksByHabitId: Record<string, number> = {};
-    if (settings.streakAlerts) {
-      const results = await Promise.all(
-        incomplete.map((h) =>
-          UserRepository.getHabitStats(h.id, token)
-            .then((s) => [h.id, s.current_streak] as const)
-            // A single habit's stats failing to load shouldn't block the
-            // whole notification — just treat it as "no streak" for ranking.
-            .catch(() => [h.id, 0] as const)
-        )
+      const incomplete = (habits as Habit[]).filter(
+        (h) => !h.archived && isHabitScheduledForDate(h, today) && !completionMap[h.id]
       );
-      streaksByHabitId = Object.fromEntries(results);
-    }
 
-    const content = buildEveningNotificationContent(incomplete, streaksByHabitId, settings.streakAlerts);
-    await scheduleOrCancelEveningCheckIn(content);
-    // getToken/qc are intentionally read via refs above, not listed here —
-    // see the comment on getTokenRef/qcRef for why.
+      if (incomplete.length === 0) {
+        await scheduleOrCancelEveningCheckIn(null);
+        return;
+      }
+
+      let streaksByHabitId: Record<string, number> = {};
+      if (settings.streakAlerts) {
+        const results = await Promise.all(
+          incomplete.map((h) =>
+            UserRepository.getHabitStats(h.id, token)
+              .then((s) => [h.id, s.current_streak] as const)
+              // A single habit's stats failing to load shouldn't block the
+              // whole notification — just treat it as "no streak" for ranking.
+              .catch(() => [h.id, 0] as const)
+          )
+        );
+        streaksByHabitId = Object.fromEntries(results);
+      }
+
+      const content = buildEveningNotificationContent(incomplete, streaksByHabitId, settings.streakAlerts);
+      await scheduleOrCancelEveningCheckIn(content);
+      // getToken/qc are intentionally read via refs above, not listed here —
+      // see the comment on getTokenRef/qcRef for why.
+    } catch (e) {
+      if (__DEV__) console.warn('[smart-notifications] evening check-in recompute skipped (non-fatal):', e);
+    }
   }, [user?.id, settings.remindersEnabled, settings.streakAlerts]);
 
   const recomputeInactivityNudge = useCallback(async () => {
     if (!user?.id) return;
-    if (settings.inactivityNudgeEnabled) {
-      await rescheduleInactivityNudge();
-    } else {
-      await cancelInactivityNudge();
+    // Best-effort background task — same non-fatal error policy as above.
+    try {
+      if (settings.inactivityNudgeEnabled) {
+        await rescheduleInactivityNudge();
+      } else {
+        await cancelInactivityNudge();
+      }
+    } catch (e) {
+      if (__DEV__) console.warn('[smart-notifications] inactivity nudge recompute skipped (non-fatal):', e);
     }
   }, [user?.id, settings.inactivityNudgeEnabled]);
 

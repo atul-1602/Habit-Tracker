@@ -8,22 +8,45 @@ import {
 } from 'react-native';
 import { Text } from '../../src/components/ui/Text';
 import { FadeInView } from '../../src/components/ui/FadeInView';
-import { CheckCircle2, Circle, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { CheckCircle2, Circle, ChevronLeft, ChevronRight, Lock } from 'lucide-react-native';
 import { useState } from 'react';
 import { useHabits } from '../../src/hooks/useHabits';
 import { useCompletions, useToggleCompletion } from '../../src/hooks/useCompletions';
 import { useMonthCompletions } from '../../src/hooks/useCompletions';
-import { buildCalendarGrid, dayToISO, MONTH_SHORT, isHabitScheduledForDate } from '../../src/lib/dateUtils';
+import { buildCalendarGrid, dayToISO, MONTH_SHORT, isHabitScheduledForDate, todayISO } from '../../src/lib/dateUtils';
 
 const DAYS_HEADER = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
+// Right-side indicator for a habit row in the day detail list:
+//  - done            → a check (dimmed on locked, read-only days so history
+//                      is still visible but clearly not tappable)
+//  - not done, today → an empty circle the user can tap to complete
+//  - not done, locked→ a lock, making it obvious the day can't be edited
+function renderCompletionIcon(done: boolean, editable: boolean) {
+  if (done) return <CheckCircle2 size={24} color={editable ? '#C7F464' : '#5A6B3B'} />;
+  if (!editable) return <Lock size={18} color="#52525B" />;
+  return <Circle size={24} color="#27272A" />;
+}
+
 export default function CalendarTab() {
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth());
-  const [selected, setSelected] = useState(now.getDate());
+  // Define "today" exactly as the rest of the app does (todayISO, UTC-based)
+  // so the cell we highlight as today, the cell we let the user edit, and the
+  // date the Home tab writes completions to are always the *same* day.
+  // Deriving the initial selection from local `new Date()` parts instead would
+  // drift by a day near midnight (e.g. in IST, UTC+5:30), leaving the user's
+  // visible "today" locked while an adjacent cell was editable.
+  const todayStr = todayISO();
+  const [ty, tm, td] = todayStr.split('-').map(Number);
+  const [year, setYear] = useState(ty);
+  const [month, setMonth] = useState(tm - 1);
+  const [selected, setSelected] = useState(td);
 
   const selectedISO = dayToISO(year, month, selected);
+
+  // Completions can only be changed for today — past days are history and
+  // future days haven't happened yet, so both are read-only (view only).
+  const isEditable = selectedISO === todayStr;
+  const isFuture = selectedISO > todayStr;
 
   const { data: monthMap = {}, isLoading: monthLoading } = useMonthCompletions(year, month);
   const { data: habits = [], isLoading: habitsLoading } = useHabits();
@@ -89,7 +112,7 @@ export default function CalendarTab() {
         {/* Calendar Grid */}
         <View style={styles.calGrid}>
           {days.map((day, i) => {
-            const isToday = day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
+            const isToday = !!day && dayToISO(year, month, day) === todayStr;
             const isSelected = day === selected;
             const intensity = day ? getIntensity(day) : 0;
 
@@ -127,6 +150,17 @@ export default function CalendarTab() {
           )}
         </View>
 
+        {!isEditable && scheduledHabits.length > 0 && (
+          <View style={styles.lockNote}>
+            <Lock size={14} color="#A1A1AA" />
+            <Text style={styles.lockNoteText}>
+              {isFuture
+                ? "This day hasn't arrived yet — you can only check off today's habits."
+                : "Past days are locked — you can only check off today's habits."}
+            </Text>
+          </View>
+        )}
+
         {habitsLoading ? (
           <ActivityIndicator color="#C7F464" style={{ marginTop: 24 }} />
         ) : habits.length === 0 ? (
@@ -138,23 +172,26 @@ export default function CalendarTab() {
             <Text style={styles.emptyText}>No habits scheduled for this day.</Text>
           </View>
         ) : (
-          scheduledHabits.map(h => (
-            <TouchableOpacity
-              key={h.id}
-              style={styles.habitRow}
-              onPress={() => toggleCompletion({ habitId: h.id, completed: !completionMap[h.id] })}
-            >
-              <View style={styles.habitLeft}>
-                <View style={[styles.habitIcon, { backgroundColor: `${h.color}25` }]}>
-                  <Text style={{ fontSize: 16 }}>{h.emoji}</Text>
+          scheduledHabits.map(h => {
+            const done = !!completionMap[h.id];
+            return (
+              <TouchableOpacity
+                key={h.id}
+                style={[styles.habitRow, !isEditable && styles.habitRowLocked]}
+                disabled={!isEditable}
+                activeOpacity={isEditable ? 0.2 : 1}
+                onPress={() => toggleCompletion({ habitId: h.id, completed: !done })}
+              >
+                <View style={styles.habitLeft}>
+                  <View style={[styles.habitIcon, { backgroundColor: `${h.color}25` }]}>
+                    <Text style={{ fontSize: 16 }}>{h.emoji}</Text>
+                  </View>
+                  <Text style={styles.habitTitle}>{h.name}</Text>
                 </View>
-                <Text style={styles.habitTitle}>{h.name}</Text>
-              </View>
-              {completionMap[h.id]
-                ? <CheckCircle2 size={24} color="#C7F464" />
-                : <Circle size={24} color="#27272A" />}
-            </TouchableOpacity>
-          ))
+                {renderCompletionIcon(done, isEditable)}
+              </TouchableOpacity>
+            );
+          })
         )}
       </ScrollView>
     </FadeInView>
@@ -189,6 +226,9 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 13, color: '#C7F464', fontWeight: '700' },
 
   habitRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#1C1C1F', borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#27272A' },
+  habitRowLocked: { opacity: 0.55 },
+  lockNote: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#1C1C1F', borderWidth: 1, borderColor: '#27272A', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, marginBottom: 14 },
+  lockNoteText: { flex: 1, fontSize: 12, color: '#A1A1AA', lineHeight: 17 },
   habitLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   habitIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   habitTitle: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },

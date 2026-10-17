@@ -33,13 +33,25 @@ app.use(
 app.use(express.json({ limit: '5mb' }));
 
 // ── Rate limiting ─────────────────────────────────────────────
+// NOTE on the limit: this app legitimately bursts requests — each data-heavy
+// screen fans out an N+1 per-habit stats call, every completion toggle
+// invalidates several query families at once, and the smart-notification
+// recompute fetches habits + completions + per-habit streaks together. On the
+// Android emulator *all* of that traffic collapses to a single source IP
+// (10.0.2.2), so a per-IP ceiling has to account for one user's whole burst,
+// not one request stream. 120/min (2 req/s) was far too tight and produced
+// spurious 429s during normal use; 600/min (10 req/s) keeps a real runaway-loop
+// guard while leaving comfortable headroom. Override via RATE_LIMIT_MAX if a
+// real multi-user-behind-one-NAT deployment ever needs a different ceiling.
 app.use(
   '/api',
   rateLimit({
     windowMs: 60 * 1000,
-    max: 120,
+    max: Number(process.env.RATE_LIMIT_MAX) || 600,
     standardHeaders: true,
     legacyHeaders: false,
+    // CORS preflight requests are automatic and shouldn't eat a client's budget.
+    skip: (req) => req.method === 'OPTIONS',
   })
 );
 

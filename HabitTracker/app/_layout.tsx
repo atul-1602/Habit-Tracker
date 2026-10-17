@@ -121,13 +121,13 @@ function AuthGuard() {
   useEffect(() => {
     if (!effectiveIsSignedIn) return;
 
-    recomputeEveningCheckIn().catch((e) => console.error(e));
-    recomputeInactivityNudge().catch((e) => console.error(e));
+    void recomputeEveningCheckIn();
+    void recomputeInactivityNudge();
 
     const sub = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
-        recomputeEveningCheckIn().catch((e) => console.error(e));
-        recomputeInactivityNudge().catch((e) => console.error(e));
+        void recomputeEveningCheckIn();
+        void recomputeInactivityNudge();
       }
     });
     return () => sub.remove();

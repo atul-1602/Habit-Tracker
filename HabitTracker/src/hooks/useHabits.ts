@@ -105,7 +105,7 @@ export function useCreateHabit() {
         scheduleHabitReminder(newHabit as Habit).catch(e => console.error(e));
       }
       // A new habit can change whether anything's incomplete today.
-      recomputeEveningCheckIn().catch(e => console.error(e));
+      void recomputeEveningCheckIn();
     },
   });
 }
@@ -132,7 +132,7 @@ export function useUpdateHabit() {
       }
       // Editing a habit's schedule/archived state can change what's
       // incomplete today (e.g. switching it to a day it's no longer due).
-      recomputeEveningCheckIn().catch(e => console.error(e));
+      void recomputeEveningCheckIn();
     },
   });
 }
@@ -152,7 +152,7 @@ export function useArchiveHabit() {
     onSettled: (_data, _error, habitId) => {
       qc.invalidateQueries({ queryKey: queryKeys.habits.all(userId) });
       cancelHabitReminder(habitId).catch(e => console.error(e));
-      recomputeEveningCheckIn().catch(e => console.error(e));
+      void recomputeEveningCheckIn();
     },
   });
 }
@@ -172,7 +172,7 @@ export function useDeleteHabit() {
     onSettled: (_data, _error, habitId) => {
       qc.invalidateQueries({ queryKey: queryKeys.habits.all(userId) });
       cancelHabitReminder(habitId).catch(e => console.error(e));
-      recomputeEveningCheckIn().catch(e => console.error(e));
+      void recomputeEveningCheckIn();
     },
   });
 }
@@ -192,7 +192,7 @@ export function useClearAllHabits() {
     onSettled: () => {
       qc.invalidateQueries({ queryKey: queryKeys.habits.all(userId) });
       // No habits left → nothing to check in about.
-      recomputeEveningCheckIn().catch(e => console.error(e));
+      void recomputeEveningCheckIn();
     },
   });
 }

@@ -86,7 +86,7 @@ export function useToggleCompletion(date: string = todayISO()) {
       // past/future day from the calendar doesn't change what's incomplete
       // right now.
       if (date === todayISO()) {
-        recomputeEveningCheckIn().catch((e) => console.error(e));
+        void recomputeEveningCheckIn();
       }
     },
   });
