@@ -18,7 +18,7 @@
       },
       "env": {
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_Y3JlZGlibGUtY2hvdy0yODI4LmNsZXJrLmFjY291bnRzLmRldiQ",
-        "EXPO_PUBLIC_API_BASE_URL": "https://REPLACE-WITH-YOUR-RENDER-URL.onrender.com/api"
+        "EXPO_PUBLIC_API_BASE_URL": "https://habit-tracker-f4ij.onrender.com/api"
       }
     },
     "production": {
@@ -28,7 +28,7 @@
       },
       "env": {
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_Y3JlZGlibGUtY2hvdy0yODI4LmNsZXJrLmFjY291bnRzLmRldiQ",
-        "EXPO_PUBLIC_API_BASE_URL": "https://REPLACE-WITH-YOUR-RENDER-URL.onrender.com/api"
+        "EXPO_PUBLIC_API_BASE_URL": "https://habit-tracker-f4ij.onrender.com/api"
       }
     }
   },
