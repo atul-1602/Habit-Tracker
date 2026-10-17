@@ -1,12 +1,19 @@
 import { Platform } from 'react-native';
+import * as Device from 'expo-device';
 
 const rawUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:5001/api';
 
 function getBaseUrl(): string {
-  let url = rawUrl.trim();
-  if (Platform.OS === 'android') {
-    // Replace localhost / 127.0.0.1 / local IPs with 10.0.2.2 for Android emulator network bridge
-    url = url
+  const url = rawUrl.trim();
+  // The 10.0.2.2 bridge is ONLY meaningful on the Android *emulator* — it's the
+  // emulator's special alias for the host machine's localhost. On a real phone
+  // 10.0.2.2 is unreachable, so there we must use the configured URL verbatim
+  // (a LAN IP, or a deployed https URL). Rewriting it unconditionally — as this
+  // used to — silently broke every request in a real-device build.
+  // `Device.isDevice` is false on the emulator/simulator, true on a physical device.
+  const isAndroidEmulator = Platform.OS === 'android' && !Device.isDevice;
+  if (isAndroidEmulator) {
+    return url
       .replace('http://localhost', 'http://10.0.2.2')
       .replace('http://127.0.0.1', 'http://10.0.2.2')
       .replace(/http:\/\/192\.168\.\d+\.\d+/, 'http://10.0.2.2');
@@ -37,9 +44,12 @@ export async function apiFetch<T>(
 
   const url = `${BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
-  // Add 10s timeout to prevent UI hanging indefinitely
+  // Timeout so the UI never hangs forever. 30s (not 10s) because a backend on a
+  // free hosting tier can cold-start for ~30-50s after it has spun down from
+  // inactivity — too short a timeout would abort the very first request after
+  // idle and make the app look broken when the server is merely waking up.
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
     const response = await fetch(url, {

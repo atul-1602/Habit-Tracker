@@ -216,7 +216,7 @@ There is currently **no automated test coverage for the frontend** (no Jest/RNTL
 - Tapping a delivered habit-reminder notification doesn't deep-link to that habit, despite `data: { habitId }` being attached — no response listener wired up yet
 - ~~Decide the fate of `app/index.tsx` and `(tabs)/habits.tsx`~~ — both removed (16th pass)
 - ~~Reconcile `userInterfaceStyle` config vs. all-dark UI~~ — fixed (15th pass), now `"dark"` to match reality
-- Set a real Android package name / iOS bundle identifier before any store submission — still `com.anonymous.HabitTracker` (Expo's placeholder), no iOS bundle identifier set at all
+- ~~Set a real Android package name~~ — done (22nd pass): `com.atul.habittracker`. Still open: no iOS `bundleIdentifier` set at all (needed before any iOS build/submission)
 - Add frontend test coverage
 - Revisit the backend-vs-local-first architecture decision if offline support matters going forward
 - `habit/[id].tsx`, `edit-habit/[id].tsx`, and `create-habit.tsx` still use plain `router.back()` — likely the same "lands on Home" issue as §12's 18th pass, but each is reachable from more than one place (Home *and* Calendar, or via a dynamic `id`), so fixing it needs passing along an explicit origin rather than a single hardcoded target like the simpler screens got
@@ -242,6 +242,14 @@ Restart required after changing any `EXPO_PUBLIC_*` var (`npx expo start -c`) or
 ## 12. Session change log
 
 Append a dated entry here each time we do meaningful work, newest at the top. Keep entries short — what changed and why, not a full transcript.
+
+### 2026-10-17 (22nd pass) — Real-device / standalone-APK readiness (deploy backend + EAS build)
+Goal: install the app on a real phone as a standalone APK (chosen path: deploy the Express backend online + build via EAS cloud, `preview` profile → APK). Code/config prepared here; the deploy + build themselves are interactive (Render/Expo logins) and done by the user.
+- **Fixed a real-device-breaking bug in `src/database/apiClient.ts`.** It unconditionally rewrote any Android URL to `10.0.2.2` (the *emulator's* alias for host localhost) — which is unreachable on a physical phone, so every request in a real-device build would have failed. Now gated on `Platform.OS === 'android' && !Device.isDevice`, so the emulator still gets the bridge but a real device (and any deployed/LAN URL) is used verbatim. Also bumped the request timeout 10s → **30s** so a free-tier backend's cold start (~30-50s after idle) doesn't abort the first request and look like a crash.
+- **`eas.json` created** with `development` (dev-client APK), `preview` (**APK, internal distribution** — the one that produces the installable file), and `production` (app-bundle) profiles. The two `EXPO_PUBLIC_*` vars are set under each profile's `env` because `.env` is gitignored and never reaches the EAS cloud build — both values are publishable-by-design (the Clerk key is a `pk_test`), so committing them is fine. **The API URL in `preview`/`production` is a placeholder (`REPLACE-WITH-YOUR-RENDER-URL`) that must be set to the deployed backend URL (with the `/api` suffix) before building.**
+- **`app.json`**: `android.package` set from the `com.anonymous.HabitTracker` placeholder → **`com.atul.habittracker`** (change if you own a domain; permanent-ish once on the Play Store, irrelevant for personal sideload), added `versionCode: 1`. `eas.json` uses `appVersionSource: "local"` so the version lives in `app.json`.
+- **`backend/package.json`**: added `engines.node >= 18` so Render picks a compatible runtime. Backend is deploy-ready as-is: `start` is `node server.js`, it reads config from `process.env` (dotenv just no-ops when there's no file), listens on `process.env.PORT` (Render sets it), and CORS is irrelevant to the native app (CORS is browser-only).
+- **Deploy notes (for whoever runs it):** Render web service → Root Directory `HabitTracker/backend`, Build `npm install`, Start `node server.js`; set env `CLERK_SECRET_KEY` + `MONGODB_URI` (copy from `backend/.env`); MongoDB Atlas → Network Access must allow `0.0.0.0/0` so Render can connect. Caveats: Render free tier sleeps after ~15 min idle (first request slow — the 30s timeout covers it); the Clerk instance is still a **dev** (`pk_test`) instance — fine for personal use, swap to a Clerk production instance for a real launch.
 
 ### 2026-10-17 (21st pass) — Completions are now editable only for *today* (past & future days locked)
 Reported: the calendar let you tap habits on any day — past or future — and toggle them complete/incomplete. Requirement: a habit can only be checked off on the day it's actually for (today); other days are view-only.
